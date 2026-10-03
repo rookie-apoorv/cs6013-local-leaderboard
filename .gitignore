@@ -1,0 +1,6 @@
+lb_local/
+lb_data.js
+lb_sets.json
+lb_sync_config.json
+site/
+__pycache__/

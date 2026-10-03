@@ -1,0 +1,58 @@
+name: Publish leaderboard
+
+# Rebuilds the public site from the private Hugging Face registries.
+# Runs once a day and whenever you press "Run workflow" (Actions tab).
+on:
+  schedule:
+    - cron: "13 3 * * *"        # daily at 03:13 UTC (08:43 IST)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Check configuration
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          LB_REPO: ${{ vars.LB_REPO }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then echo "::error::Add a repository secret HF_TOKEN (Settings > Secrets and variables > Actions)"; exit 1; fi
+          if [ -z "$LB_REPO" ]; then echo "::error::Add a repository variable LB_REPO = <hf-user>/cs6013-local-leaderboard"; exit 1; fi
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Sync registries and export the public site
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python lb_sync.py --repo "${{ vars.LB_REPO }}" --export site --public --no-open
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

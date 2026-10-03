@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS6013 Local Leaderboard</title>
+<style>
+/* ---------- tokens: slate + indigo ---------- */
+:root {
+  color-scheme: light;
+  --bg: #f3f5f9; --panel: #ffffff; --panel2: #f8fafc; --ink: #0f172a; --ink2: #475569; --muted: #94a3b8;
+  --line: #e2e8f0; --line2: #edf1f6; --accent: #4f46e5; --accent-ink: #ffffff; --accent-soft: #eef2ff;
+  --good: #0f766e; --good-soft: #e6f6f4; --bad: #be123c; --bad-soft: #fdecef;
+  --heat: 79, 70, 229; --s1: #2a78d6; --s2: #eb6834; --neutral: #a3adbd;
+  --shadow: 0 1px 2px rgba(15,23,42,.04), 0 1px 8px rgba(15,23,42,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0b1120; --panel: #121a2b; --panel2: #16203a; --ink: #e2e8f0; --ink2: #9aa8bd; --muted: #64748b;
+    --line: #233049; --line2: #1b263b; --accent: #8b93f8; --accent-ink: #0b1120; --accent-soft: #1f2550;
+    --good: #2dd4bf; --good-soft: #0f2f2e; --bad: #fb7185; --bad-soft: #3a1622;
+    --heat: 139, 147, 248; --s1: #3987e5; --s2: #d95926; --neutral: #5b6880;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1120; --panel: #121a2b; --panel2: #16203a; --ink: #e2e8f0; --ink2: #9aa8bd; --muted: #64748b;
+  --line: #233049; --line2: #1b263b; --accent: #8b93f8; --accent-ink: #0b1120; --accent-soft: #1f2550;
+  --good: #2dd4bf; --good-soft: #0f2f2e; --bad: #fb7185; --bad-soft: #3a1622;
+  --heat: 139, 147, 248; --s1: #3987e5; --s2: #d95926; --neutral: #5b6880;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); accent-color: var(--accent);
+  font: 14px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+td, .tile .v { font-variant-numeric: tabular-nums; }
+a { color: var(--accent); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; }
+
+/* ---------- header ---------- */
+header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 18px;
+  padding: 0 20px; height: 56px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.brand { font-weight: 700; font-size: 16px; letter-spacing: -.01em; white-space: nowrap; }
+.brand span { color: var(--accent); }
+nav { display: flex; gap: 2px; height: 100%; }
+nav a { display: flex; align-items: center; padding: 0 14px; color: var(--ink2); text-decoration: none;
+  border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; }
+nav a:hover { color: var(--ink); }
+nav a.on { color: var(--accent); border-bottom-color: var(--accent); }
+.hright { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink2); white-space: nowrap; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); margin-right: 5px; }
+.dot.live { background: var(--good); }
+.iconbtn { background: transparent; border: 1px solid var(--line); color: var(--ink2); border-radius: 7px;
+  padding: 4px 9px; cursor: pointer; font: inherit; font-size: 12px; }
+.iconbtn:hover { color: var(--ink); border-color: var(--muted); }
+
+/* ---------- layout ---------- */
+.shell { display: grid; grid-template-columns: 300px 1fr; min-height: calc(100vh - 56px); }
+.shell.nosb { grid-template-columns: 0 1fr; }
+.shell > * { min-width: 0; }
+aside { background: var(--panel); border-right: 1px solid var(--line); position: sticky; top: 56px;
+  height: calc(100vh - 56px); overflow-y: auto; overflow-x: hidden; }
+.shell.nosb aside { border-right: 0; }
+.sbhead { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px; }
+.sbhead b { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); }
+main { padding: 18px 24px 48px; }
+@media (max-width: 900px) { .shell { grid-template-columns: 1fr; } aside { position: static; height: auto; } .shell.nosb aside { display: none; } }
+
+/* ---------- sidebar sections ---------- */
+details.sec { border-top: 1px solid var(--line2); }
+details.sec > summary { list-style: none; cursor: pointer; padding: 11px 16px; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary::after { content: "▸"; color: var(--muted); transition: transform .15s; margin-left: 8px; }
+details.sec[open] > summary::after { transform: rotate(90deg); }
+details.sec > summary .hint { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; text-align: right; }
+.secbody { padding: 0 16px 14px; }
+.tree label, .cklist label { display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer; font-size: 13px; }
+.tree label .cnt, .cklist label .cnt { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.tree .mod { font-weight: 600; margin-top: 4px; }
+.tree .kids { padding-left: 22px; }
+.quick { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.mini { background: var(--panel2); border: 1px solid var(--line); color: var(--ink2); border-radius: 6px;
+  padding: 2px 8px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.mini:hover { color: var(--accent); border-color: var(--accent); }
+.modelrow { display: flex; align-items: center; gap: 7px; padding: 3px 0; font-size: 13px; }
+.modelrow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.star { background: none; border: 0; cursor: pointer; font-size: 16px; color: var(--muted); padding: 0 2px; line-height: 1; }
+.star.on { color: var(--accent); }
+.star:hover { color: var(--accent); }
+.grouplbl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 8px 0 2px; }
+.lbl { display: block; font-size: 12px; color: var(--ink2); margin: 10px 0 4px; }
+select, input[type=number], input[type=text], textarea {
+  width: 100%; background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 7px; padding: 6px 8px; font: inherit; font-size: 13px; }
+select:focus, input:focus, textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+textarea { height: 70px; font-family: ui-monospace, monospace; font-size: 12px; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row > * { flex: 1; }
+.btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 7px; padding: 6px 12px;
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); font-weight: 500; }
+.btn.plain { background: var(--panel2); color: var(--ink2); border: 1px solid var(--line); font-weight: 500; }
+.btn.plain:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.setstatus { font-size: 12px; color: var(--ink2); margin: 6px 0 8px; }
+.setstatus .modf { color: var(--bad); }
+.note { font-size: 12px; color: var(--ink2); }
+.note.warn { color: var(--bad); }
+
+/* ---------- main components ---------- */
+.pubnote { background: var(--accent-soft); color: var(--ink2); border-radius: 10px; padding: 9px 14px; font-size: 13px; margin-bottom: 12px; }
+.pubnote b { color: var(--ink); }
+.ctxbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 16px; }
+.fchip { display: inline-flex; align-items: center; gap: 4px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px 11px; font-size: 12px; color: var(--ink2); }
+.fchip b { color: var(--ink); font-weight: 600; }
+.fchip .x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 0 0 4px; }
+.fchip .x:hover { color: var(--bad); }
+.fchip.setc { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+.fchip.setc b { color: var(--accent); }
+.fp { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); margin-left: 4px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.card h3 { margin: 0 0 12px; font-size: 13px; font-weight: 650; color: var(--ink2); letter-spacing: .02em; }
+details.card > summary { cursor: pointer; font-size: 13px; font-weight: 650; color: var(--ink2); }
+details.card[open] > summary { margin-bottom: 12px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; box-shadow: var(--shadow); min-width: 0; }
+.tile .k { font-size: 12px; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .v { font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin: 2px 0; }
+.tile .s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; position: relative; }
+.toolbar .sp { flex: 1; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
+th, td { padding: 8px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line2); }
+body.compact th, body.compact td { padding: 4px 8px; }
+thead th { background: var(--panel2); color: var(--ink2); font-weight: 600; font-size: 12px; }
+thead tr.grp th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+  text-align: center; border-bottom: 0; padding-bottom: 0; }
+thead tr.grp th.g { border-left: 1px solid var(--line); }
+th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
+th.sorted { color: var(--accent); }
+th[data-help]::after { content: " ⓘ"; color: var(--muted); font-size: 10px; }
+tbody tr:hover td { background: var(--panel2); }
+tbody tr:last-child td { border-bottom: 0; }
+.l { text-align: left !important; }
+td.stick, th.stick { position: sticky; left: 0; z-index: 1; background: var(--panel); text-align: left; }
+thead th.stick { background: var(--panel2); z-index: 2; }
+tbody tr:hover td.stick { background: var(--panel2); }
+.rank { display: inline-block; min-width: 22px; color: var(--muted); font-size: 12px; }
+tr.ineligible td { color: var(--muted); }
+tr.ineligible .bar i { background: var(--neutral); }
+tr.grouprow td { background: var(--panel2); font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--ink2); font-weight: 600; text-align: left; }
+.isref { font-size: 11px; color: var(--accent); margin-left: 6px; }
+.bar { display: inline-flex; align-items: center; gap: 8px; }
+.bar u { display: inline-block; width: 60px; height: 6px; border-radius: 3px; background: var(--line2); text-decoration: none; position: relative; overflow: hidden; }
+.bar u i { position: absolute; left: 0; top: 0; height: 6px; border-radius: 3px; background: rgba(var(--heat), .85); }
+.ci { color: var(--muted); font-size: 11px; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-weight: 600; }
+.pill.pos { background: var(--good-soft); color: var(--good); }
+.pill.neg { background: var(--bad-soft); color: var(--bad); }
+.ns { color: var(--muted); }
+.posc { color: var(--good); } .negc { color: var(--bad); }
+.heat { text-align: center !important; min-width: 54px; }
+tr.click { cursor: pointer; }
+.link { color: var(--accent); cursor: pointer; }
+.link:hover { text-decoration: underline; }
+.colpick { display: none; position: absolute; top: 36px; left: 0; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 16px; z-index: 15; box-shadow: 0 8px 28px rgba(15,23,42,.18); columns: 2; column-gap: 28px; }
+.colpick .g { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: .06em; margin: 6px 0 2px; break-after: avoid; }
+.colpick label { display: block; font-size: 13px; padding: 2px 0; white-space: nowrap; break-inside: avoid; }
+.grid2 { display: grid; grid-template-columns: 420px 1fr; gap: 24px; align-items: start; }
+@media (max-width: 1300px) { .grid2 { grid-template-columns: 1fr; } }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink2); margin-top: 6px; flex-wrap: wrap; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+#tip { position: fixed; pointer-events: none; background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 8px 24px rgba(15,23,42,.18);
+  display: none; z-index: 50; max-width: 340px; white-space: normal; line-height: 1.45; }
+.seedchip { display: inline-block; border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px;
+  margin: 2px 4px 2px 0; font-size: 12px; background: var(--panel2); }
+.seedchip.ok { border-color: var(--good); color: var(--good); background: var(--good-soft); }
+.seedchip.bad { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); }
+.qtitle { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+pre.problem { white-space: pre-wrap; font: 14px/1.6 Inter, system-ui, sans-serif; margin: 12px 0 0; }
+.gold { margin-top: 12px; display: inline-block; background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 4px 10px; }
+details.trace { border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; background: var(--panel); }
+details.trace > summary { padding: 9px 12px; cursor: pointer; font-size: 13px; }
+details.trace .body { padding: 0 12px 12px; }
+pre.tracetext { white-space: pre-wrap; word-break: break-word; max-height: 480px; overflow: auto;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  font: 12px/1.55 ui-monospace, monospace; margin: 6px 0; }
+mark.box { background: var(--accent-soft); color: var(--accent); font-weight: 700; padding: 0 2px; border-radius: 3px; }
+.modal { position: fixed; inset: 0; background: rgba(2,6,23,.45); display: none; align-items: center; justify-content: center; z-index: 60; }
+.modal .inner { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; width: min(560px, 92vw); }
+.modal textarea { height: 260px; }
+.faq h2 { font-size: 18px; margin: 0 0 4px; }
+.faq h3 { font-size: 14px; margin: 22px 0 8px; color: var(--ink); }
+.faq p, .faq li { color: var(--ink2); font-size: 13.5px; max-width: 900px; }
+.faq li { margin-bottom: 4px; }
+.faq table td, .faq table th { white-space: normal; text-align: left; vertical-align: top; }
+.faq table td:first-child { white-space: nowrap; font-weight: 600; color: var(--ink); }
+.empty { color: var(--muted); padding: 22px; text-align: center !important; }
+</style>
+</head>
+<body>
+<header>
+  <button class="iconbtn" id="sbtoggle" title="show / hide filters">☰ Filters</button>
+  <div class="brand">CS6013 <span>Local Leaderboard</span></div>
+  <nav id="nav"><a data-p="board">Leaderboard</a><a data-p="h2h">Head-to-head</a><a data-p="questions">Questions</a><a data-p="faq">FAQ</a></nav>
+  <div class="hright">
+    <span id="synced"></span>
+    <span id="srv"><span class="dot"></span>static file</span>
+    <button class="iconbtn" id="density" title="table density">Compact</button>
+    <button class="iconbtn" id="theme" title="theme: auto / light / dark">Auto</button>
+  </div>
+</header>
+<div class="shell" id="shell">
+  <aside id="aside">
+    <div class="sbhead"><b>Filters</b><button class="mini" id="resetall" title="reset all filters to defaults">reset</button></div>
+    <details class="sec" open><summary>Question set <span class="hint" id="h-set"></span></summary><div class="secbody">
+      <select id="setpick"></select>
+      <div class="setstatus" id="setstatus"></div>
+      <div class="row"><button class="btn plain" id="setsave" title="overwrite this set with the current selection">Save</button><button class="btn plain" id="setren" title="rename to the name typed below">Rename</button><button class="btn plain" id="setdel">Delete</button></div>
+      <span class="lbl">Save the current selection as a new set</span>
+      <div class="row"><input type="text" id="setname" placeholder="set name"><button class="btn" id="setsaveas" style="flex:0 0 auto">Save as</button></div>
+      <label class="note" style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="setfreeze"> frozen ❄ — store the exact question list</label>
+      <div class="quick" style="margin-top:10px"><button class="mini" id="setexport">Export sets</button><button class="mini" id="setimport">Import sets</button></div>
+      <input type="file" id="setfile" accept=".json" style="display:none">
+      <div class="note" id="setstore"></div>
+    </div></details>
+    <details class="sec" open><summary>Sources <span class="hint" id="h-src"></span></summary><div class="secbody">
+      <div class="quick"><button class="mini" data-q="all">All</button><button class="mini" data-q="none">None</button><button class="mini" data-q="aime">AIME only</button><button class="mini" data-q="fresh">Fresh 2025–26</button></div>
+      <div class="tree" id="srctree"></div>
+    </div></details>
+    <details class="sec" open><summary>Base difficulty <span class="hint" id="h-diff"></span></summary><div class="secbody">
+      <div class="cklist" id="difflist"></div>
+      <div class="note" style="margin-top:4px">From the base model's solve rate over all its samples.</div>
+    </div></details>
+    <details class="sec" open><summary>Samples <span class="hint" id="h-k"></span></summary><div class="secbody">
+      <select id="seedmode">
+        <option value="k">avg@k — seeds 42 … 42+k−1</option>
+        <option value="all">all seeds each model has</option>
+        <option value="list">explicit seed list</option>
+      </select>
+      <div class="row" style="margin-top:8px"><input type="number" id="k" min="1" max="32" title="k"><input type="text" id="seedlist" placeholder="42,43"></div>
+    </div></details>
+    <details class="sec" open><summary>Models <span class="hint" id="h-models"></span></summary><div class="secbody">
+      <div class="quick"><button class="mini" data-m="all">Show all</button><button class="mini" data-m="none">Hide all</button></div>
+      <div id="modellist"></div>
+      <div class="note" style="margin-top:6px">☐ show / hide · ★ reference for Δ, retention and the loss split.</div>
+    </div></details>
+    <details class="sec"><summary>Advanced <span class="hint" id="h-adv"></span></summary><div class="secbody">
+      <span class="lbl">Rank only models with coverage ≥ (%)</span><input type="number" id="mincov" min="0" max="100" step="5">
+      <span class="lbl">Eval config</span><select id="cfg"></select>
+      <span class="lbl">Paste question ids (overrides sources + difficulty)</span>
+      <textarea id="uids" placeholder="aime_2025/1&#10;aime_2025/7 ..."></textarea>
+    </div></details>
+  </aside>
+  <main id="view"></main>
+</div>
+<div id="tip"></div>
+<div class="modal" id="modal"><div class="inner">
+  <div style="font-weight:700;margin-bottom:4px" id="mtitle"></div>
+  <p class="note" id="mnote"></p>
+  <textarea id="mtext" readonly></textarea>
+  <div class="row" style="margin-top:12px"><span></span>
+    <button class="btn ghost" id="mcopy" style="flex:0 0 auto">Copy</button><button class="btn" id="mclose" style="flex:0 0 auto">Close</button></div>
+</div></div>
+<script src="lb_data.js"></script>
+<script>
+(function () {
+"use strict";
+const D = window.LB_DATA;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } } };
+
+// ---------- theme / density / sidebar ----------
+const THEMES = ["auto", "light", "dark"];
+function applyTheme(t) { if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t); $("theme").textContent = t[0].toUpperCase() + t.slice(1); }
+let theme = store.get("lb_theme", "auto"); applyTheme(theme);
+$("theme").onclick = () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; store.set("lb_theme", theme); applyTheme(theme); };
+let compact = store.get("lb_compact", false);
+const applyDensity = () => { document.body.classList.toggle("compact", compact); $("density").textContent = compact ? "Comfortable" : "Compact"; };
+applyDensity(); $("density").onclick = () => { compact = !compact; store.set("lb_compact", compact); applyDensity(); };
+let sbOpen = store.get("lb_sidebar", true);
+const applySb = () => $("shell").classList.toggle("nosb", !sbOpen);
+applySb(); $("sbtoggle").onclick = () => { sbOpen = !sbOpen; store.set("lb_sidebar", sbOpen); applySb(); };
+
+if (!D) { $("view").innerHTML = '<div class="card empty">No data found. Run <code>python lb_sync.py</code> (or <code>python lb_sync.py --serve</code>) in this folder first.</div>'; return; }
+
+// ============================================================ data
+const Q = D.questions, S = D.submissions, R = D.results;
+const NQ = Q.uid.length, NS = S.submission_id.length, NR = R.s.length;
+const HAS_PRED = !!R.pred;
+const fill = (a, v) => a || new Array(NR).fill(v);
+R.wait = fill(R.wait, null); R.loop = fill(R.loop, 0); R.fromthink = fill(R.fromthink, 0); R.pred = fill(R.pred, null); R.f = fill(R.f, -1);
+Q.problem = Q.problem || new Array(NQ).fill(null); Q.answer = Q.answer || new Array(NQ).fill(null);
+const SHARDS = D.shards || [];
+const uidIndex = new Map(Q.uid.map((u, i) => [u, i]));
+const sidIndex = new Map(S.submission_id.map((s, i) => [s, i]));
+const baseIdx = S.kind.findIndex((k) => k === "base");
+const nameOf = (s) => S.alias[s] || S.submission_id[s];
+const PUBLIC = !!D.public;
+const SERVER = location.protocol.startsWith("http") && !PUBLIC;
+$("synced").textContent = `synced ${D.synced_at}`;
+$("synced").title = `${PUBLIC ? "public data" : D.repo} · ${NQ} questions · ${NS} models · ${NR} results`;
+if (PUBLIC) { $("srv").innerHTML = '<span class="dot live"></span>public view'; $("synced").textContent = `updated ${D.synced_at}`; }
+else if (SERVER) $("srv").innerHTML = '<span class="dot live"></span>server · traces on';
+else $("srv").title = "Start with `python lb_sync.py --serve` for the trace viewer and sets saved to lb_sets.json";
+
+const byCache = {};
+function rowsIndex(cfg) {
+  if (byCache[cfg]) return byCache[cfg];
+  const by = Array.from({ length: NS }, () => new Map());
+  for (let r = 0; r < NR; r++) { if (R.c[r] !== cfg) continue; const m = by[R.s[r]]; let a = m.get(R.q[r]); if (!a) { a = []; m.set(R.q[r], a); } a.push(r); }
+  return (byCache[cfg] = by);
+}
+const cfgCount = D.configs.map((_, c) => R.c.filter((x) => x === c).length);
+const defaultCfg = Math.max(0, cfgCount.indexOf(Math.max(...cfgCount, 0)));
+
+const MOD_NAMES = { A: "AIME by year", B: "fresh AIME-like", S: "MATH-500", M: "medium", C: "hard" };
+const SOURCES = [...new Set(Q.source)].filter(Boolean).sort();
+const MODULES = [...new Set(Q.module)].filter(Boolean).sort();
+const srcModule = Object.fromEntries(SOURCES.map((s) => [s, Q.module[Q.source.indexOf(s)] || "?"]));
+const isFresh = (s) => /202[5-9]/.test(s);
+const DIFF = [["always", "always solved", "100%"], ["sometimes", "sometimes", "1–99%"], ["never", "never solved", "0%"], ["nobase", "not run by base", ""]];
+function bucket(b) { if (Number.isNaN(b)) return "nobase"; if (b >= 1 - 1e-9) return "always"; if (b <= 1e-9) return "never"; return "sometimes"; }
+
+// columns: key, label, group, format, visible by default, help
+const COLS = [
+  ["name", "model", "Model", null, true, "Model alias; ★ marks the reference. Hover a row for the full submission id."],
+  ["target", "target", "Model", null, true, "Compression target (%)."],
+  ["size", "size", "Model", 3, true, "Measured size fraction (graders' script)."],
+  ["cov", "coverage", "Score", "pct", true, "Share of the set's question×seed pairs this model has (avg@k / seed list), or questions with ≥1 sample (all seeds). “+N” = questions still missing samples — click for the list to run."],
+  ["acc", "avg@k", "Score", "pct", true, "Per question: mean correctness over its counted samples; then the mean over questions. ± = 95% interval across questions."],
+  ["passk", "pass@k", "Score", "pct", false, "Share of questions solved by at least one counted sample."],
+  ["delta", "Δ ref", "vs reference", "pp", true, "avg@k minus the reference's avg@k on the question×seed pairs both have, in points. Coloured only when the 95% bootstrap interval excludes 0."],
+  ["pbetter", "P(better)", "vs reference", "pct", true, "Bootstrap probability that this model beats the reference on questions like these."],
+  ["retention", "retention", "vs reference", "pct", true, "avg@k ÷ reference avg@k on shared pairs."],
+  ["lostcut", "lost: cut-off", "vs reference", "pp", true, "Points lost vs the reference because samples hit the 32K limit without a correct answer. lost: cut-off + lost: wrong = −Δ."],
+  ["lostwrong", "lost: wrong", "vs reference", "pp", true, "Points lost vs the reference to finished-but-wrong answers."],
+  ["infl", "tokens ×ref", "vs reference", 2, true, "Mean output tokens ÷ the reference's, on shared pairs."],
+  ["trunc", "cut-off", "Behaviour", "pct", true, "Share of samples that hit the 32K token limit."],
+  ["tok", "tokens", "Behaviour", 0, true, "Mean output tokens per sample."],
+  ["wait", "wait/1K", "Behaviour", 1, true, "“wait” per 1,000 tokens of thinking — a rambling indicator."],
+  ["parse", "parse", "Behaviour", "pct", false, "Share of samples with a \\boxed{} answer the grader can read."],
+  ["week", "week", "Info", null, false, "Submission week."], ["method", "method", "Info", null, false, "Method description from the submission registry."],
+  ["official", "official", "Info", 2, false, "Official weekly leaderboard score (entered manually in the submission registry)."],
+];
+const LCOLS = ["name", "week", "method"];
+
+// ============================================================ state
+const AIME_SRC = SOURCES.filter((s) => s.startsWith("aime"));
+const DEFAULT_FILTERS = () => ({ src: (AIME_SRC.length ? AIME_SRC : SOURCES).slice(), diff: ["always", "sometimes", "never"], uids: "" });
+const state = Object.assign({
+  page: "board", seedmode: "k", k: 4, seedlist: "", cfg: defaultCfg,
+  ref: baseIdx >= 0 ? S.submission_id[baseIdx] : "", hide: [], mincov: 100,
+  sort: "acc", dir: -1, cols: Object.fromEntries(COLS.map((c) => [c[0], c[4]])), group: false,
+  A: "", B: "", qsort: "drop", qdir: -1, qsearch: "", uid: "", setName: AIME_SRC.length ? "All AIME" : "", frozen: null,
+}, DEFAULT_FILTERS());
+function loadHash() {
+  try { if (location.hash.length > 1) { const h = JSON.parse(decodeURIComponent(location.hash.slice(1))); if (h && Array.isArray(h.src)) Object.assign(state, h); } } catch (e) {}
+  if (state.cfg >= D.configs.length) state.cfg = defaultCfg;
+  state.src = state.src.filter((s) => SOURCES.includes(s));
+}
+function saveHash(push) { const h = "#" + encodeURIComponent(JSON.stringify(state)); try { push ? history.pushState(null, "", h) : history.replaceState(null, "", h); } catch (e) {} }
+window.addEventListener("popstate", () => { loadHash(); render(); });
+
+// ============================================================ saved sets
+const BUILTIN = [
+  { name: "All AIME", src: SOURCES.filter((s) => s.startsWith("aime")) },
+  { name: "AIME fresh (2025–26)", src: SOURCES.filter((s) => s.startsWith("aime") && isFresh(s)) },
+  { name: "Fresh AIME-like (module B)", src: SOURCES.filter((s) => srcModule[s] === "B") },
+  { name: "HMMT", src: SOURCES.filter((s) => s.startsWith("hmmt")) },
+  { name: "MATH-500 (module S)", src: SOURCES.filter((s) => srcModule[s] === "S") },
+  { name: "AIME · base sometimes", src: SOURCES.filter((s) => s.startsWith("aime")), diff: ["sometimes"] },
+  { name: "Everything", src: SOURCES.slice(), diff: ["always", "sometimes", "never", "nobase"] },
+].filter((b) => b.src.length).map((b) => ({ type: "filter", diff: ["always", "sometimes", "never"], uids: "", builtin: true, ...b }));
+let USER_SETS = [];
+const SETS_LS = "lb_sets";
+async function loadSets() {
+  if (SERVER) { try { const r = await fetch("/api/sets"); if (r.ok) { USER_SETS = (await r.json()).sets || []; $("setstore").textContent = "Sets are saved in lb_sets.json next to the page."; return; } } catch (e) {} }
+  USER_SETS = store.get(SETS_LS, []);
+  $("setstore").textContent = PUBLIC ? "Your sets are saved in this browser. Export to keep a copy." : "Sets are saved in this browser only — start with --serve to keep them in lb_sets.json. Export to back up.";
+}
+async function persistSets() {
+  if (SERVER) {
+    try { const r = await fetch("/api/sets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sets: USER_SETS }) }); if (r.ok) return; } catch (e) {}
+    $("setstore").textContent = "Could not write lb_sets.json — kept in this browser instead.";
+  }
+  store.set(SETS_LS, USER_SETS);
+}
+const findSet = (name) => (name ? USER_SETS.find((s) => s.name === name) || BUILTIN.find((s) => s.name === name) : undefined);
+const sameArr = (a, b) => a.length === b.length && [...a].sort().join("|") === [...b].sort().join("|");
+function setDirty() {
+  const s = findSet(state.setName); if (!s) return false;
+  if (s.type === "frozen") return !state.frozen;
+  return !(sameArr(s.src, state.src) && sameArr(s.diff, state.diff) && (s.uids || "") === state.uids);
+}
+function applySet(name) {
+  const s = findSet(name);
+  if (!s) { state.setName = ""; state.frozen = null; return; }
+  state.setName = name; state.src = s.src.filter((x) => SOURCES.includes(x)); state.diff = s.diff.slice(); state.uids = s.uids || "";
+  state.frozen = s.type === "frozen" ? s.qids.slice() : null;
+}
+
+// ============================================================ question set + metrics
+function refIdx() { const i = sidIndex.get(state.ref); return i === undefined ? baseIdx : i; }
+function allowedSeeds() {
+  if (state.seedmode === "k") return new Set(Array.from({ length: state.k }, (_, i) => 42 + i));
+  if (state.seedmode === "list") return new Set(state.seedlist.split(/[\s,]+/).filter(Boolean).map(Number).filter(Number.isFinite));
+  return null;
+}
+function solveRates(by, s) {
+  const out = new Float64Array(NQ).fill(NaN); if (s < 0) return out;
+  for (const [q, rows] of by[s]) { let ok = 0; rows.forEach((r) => (ok += R.ok[r])); out[q] = ok / rows.length; }
+  return out;
+}
+function questionSet(bsolve) {
+  const fromList = (list) => { const qs = [], unknown = []; list.forEach((u) => (uidIndex.has(u) ? qs.push(uidIndex.get(u)) : unknown.push(u))); return { qs: [...new Set(qs)], unknown }; };
+  if (state.frozen) return { ...fromList(state.frozen), mode: "frozen" };
+  const typed = state.uids.split(/[\s,]+/).filter(Boolean);
+  if (typed.length) return { ...fromList(typed), mode: "uids" };
+  const src = new Set(state.src), diff = new Set(state.diff), qs = [];
+  for (let q = 0; q < NQ; q++) if (Q.active[q] !== false && src.has(Q.source[q]) && diff.has(bucket(bsolve[q]))) qs.push(q);
+  return { qs, unknown: [], mode: "filter" };
+}
+function fingerprint(qs, seeds) {
+  const txt = qs.map((q) => Q.uid[q]).sort().join("\n") + "|" + (seeds ? [...seeds].sort().join(",") : "all");
+  let h = 0x811c9dc5; for (let i = 0; i < txt.length; i++) { h ^= txt.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+function rowsFor(by, s, q, seeds) { const rows = s >= 0 ? by[s].get(q) : null; if (!rows) return []; return seeds ? rows.filter((r) => seeds.has(R.seed[r])) : rows; }
+const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
+function ci95(a) { if (a.length < 2) return NaN; const m = mean(a), v = a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1); return 1.96 * Math.sqrt(v / a.length); }
+function rng(seed) { return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function bootstrap(d, B = 1000) {
+  const n = d.length; if (n < 2) return { lo: NaN, hi: NaN, p: NaN };
+  const r = rng(12345), ms = new Float64Array(B);
+  for (let b = 0; b < B; b++) { let s = 0; for (let i = 0; i < n; i++) s += d[(r() * n) | 0]; ms[b] = s / n; }
+  ms.sort(); let gt = 0; for (const m of ms) gt += m > 1e-12 ? 1 : Math.abs(m) <= 1e-12 ? 0.5 : 0;
+  return { lo: ms[Math.floor(0.025 * B)], hi: ms[Math.ceil(0.975 * B) - 1], p: gt / B };
+}
+function modelStats(by, s, qs, seeds) {
+  let covered = 0, pairs = 0, n = 0, parsed = 0, trunc = 0, tok = 0, waitS = 0, waitN = 0;
+  const perQ = [], passQ = [], missing = [];
+  qs.forEach((q) => {
+    const rows = rowsFor(by, s, q, seeds);
+    if (rows.length < (seeds ? seeds.size : 1)) missing.push(q);
+    if (!rows.length) return;
+    covered++; pairs += rows.length; let qok = 0;
+    rows.forEach((r) => { n++; qok += R.ok[r]; trunc += R.trunc[r]; tok += R.tok[r]; parsed += R.parsed[r]; if (R.wait[r] !== null) { waitS += R.wait[r]; waitN++; } });
+    perQ.push(qok / rows.length); passQ.push(qok > 0 ? 1 : 0);
+  });
+  const denom = seeds ? qs.length * seeds.size : qs.length;
+  return { cov: denom ? (seeds ? pairs : covered) / denom : 0, missing, samples: n, acc: mean(perQ), ci: ci95(perQ), passk: mean(passQ),
+    parse: n ? parsed / n : NaN, trunc: n ? trunc / n : NaN, tok: n ? tok / n : NaN, wait: waitN ? waitS / waitN : NaN };
+}
+function paired(by, a, b, qs, seeds) {
+  const d = [], qa = [], qb = [], cut = [], wrong = [], per = []; let ta = 0, tb = 0, shared = 0;
+  qs.forEach((q) => {
+    const ra = rowsFor(by, a, q, seeds), rb = rowsFor(by, b, q, seeds); if (!ra.length || !rb.length) return;
+    const mb = new Map(rb.map((r) => [R.seed[r], r]));
+    let oa = 0, ob = 0, ca = 0, cb = 0, wa = 0, wb = 0, c = 0, tka = 0, tkb = 0;
+    ra.forEach((r) => { const r2 = mb.get(R.seed[r]); if (r2 === undefined) return; c++; oa += R.ok[r]; ob += R.ok[r2]; tka += R.tok[r]; tkb += R.tok[r2];
+      if (!R.ok[r]) { if (R.trunc[r]) ca++; else wa++; } if (!R.ok[r2]) { if (R.trunc[r2]) cb++; else wb++; } });
+    if (!c) return;
+    shared += c; ta += tka; tb += tkb; qa.push(oa / c); qb.push(ob / c); d.push((oa - ob) / c); cut.push((ca - cb) / c); wrong.push((wa - wb) / c);
+    per.push({ q, a: oa / c, b: ob / c, n: c, ta: tka / c, tb: tkb / c });
+  });
+  const bs = bootstrap(d), ma = mean(qa), mb_ = mean(qb);
+  return { nq: d.length, shared, delta: mean(d), lo: bs.lo, hi: bs.hi, p: bs.p, retention: mb_ > 0 ? ma / mb_ : NaN,
+    lostcut: mean(cut), lostwrong: mean(wrong), infl: tb > 0 ? ta / tb : NaN, accA: ma, accB: mb_, per };
+}
+function context() {
+  const by = rowsIndex(state.cfg), bsolve = solveRates(by, baseIdx);
+  const set = questionSet(bsolve), seeds = allowedSeeds();
+  return { by, bsolve, ...set, seeds, fp: fingerprint(set.qs, seeds), ref: refIdx() };
+}
+const visibleModels = () => { const hide = new Set(state.hide); return [...Array(NS).keys()].filter((s) => !hide.has(S.submission_id[s]) || S.submission_id[s] === state.ref); };
+function modelRows(ctx) {
+  return visibleModels().map((s) => {
+    const m = modelStats(ctx.by, s, ctx.qs, ctx.seeds);
+    let p = { delta: NaN, lo: NaN, hi: NaN, p: NaN, retention: NaN, lostcut: NaN, lostwrong: NaN, infl: NaN, shared: 0 };
+    if (ctx.ref >= 0 && s === ctx.ref && m.samples) p = { delta: 0, lo: 0, hi: 0, p: NaN, retention: 1, lostcut: 0, lostwrong: 0, infl: 1, shared: m.samples };
+    else if (ctx.ref >= 0 && m.samples) p = paired(ctx.by, s, ctx.ref, ctx.qs, ctx.seeds);
+    return { s, name: nameOf(s), target: S.target[s] ?? (S.kind[s] === "base" ? "—" : null), size: S.size_frac[s], week: S.week[s], method: S.method[s],
+      official: S.official_score[s], eligible: m.samples > 0 && 100 * m.cov >= state.mincov - 1e-9, ...m,
+      delta: p.delta, lo: p.lo, hi: p.hi, pbetter: p.p, retention: p.retention, lostcut: p.lostcut, lostwrong: p.lostwrong, infl: p.infl, shared: p.shared };
+  });
+}
+
+// ============================================================ formatting
+const isNum = (v) => typeof v === "number" && !Number.isNaN(v);
+function fmt(v, f) {
+  if (v === null || v === undefined || (typeof v === "number" && Number.isNaN(v))) return '<span class="ns">—</span>';
+  if (f === "pct") return (100 * v).toFixed(1) + "%";
+  if (f === "pp") return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(100 * v).toFixed(1);
+  if (typeof f === "number") return Number(v).toLocaleString(undefined, { maximumFractionDigits: f, minimumFractionDigits: f });
+  return esc(v);
+}
+const plain = (v, f) => fmt(v, f).replace(/<[^>]+>/g, "");
+const heatCell = (v, pct) => isNum(v) ? `<td class="heat" style="background:rgba(var(--heat),${(0.06 + 0.5 * v).toFixed(2)})">${(100 * v).toFixed(0)}${pct ? "%" : ""}</td>` : `<td class="heat ns">·</td>`;
+const tip = $("tip");
+function showTip(e, html) { tip.innerHTML = html; tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 14, innerWidth - 350) + "px"; tip.style.top = (e.clientY + 16) + "px"; }
+function hideTip() { tip.style.display = "none"; }
+document.addEventListener("mouseover", (e) => { const t = e.target.closest && e.target.closest("[data-help]"); if (t) showTip(e, esc(t.dataset.help)); });
+document.addEventListener("mouseout", (e) => { if (e.target.closest && e.target.closest("[data-help]")) hideTip(); });
+function openModal(title, note, text) { $("mtitle").textContent = title; $("mnote").textContent = note; $("mtext").value = text; $("modal").style.display = "flex"; }
+$("mclose").onclick = () => ($("modal").style.display = "none");
+$("modal").onclick = (e) => { if (e.target === $("modal")) $("modal").style.display = "none"; };
+$("mcopy").onclick = () => { $("mtext").select(); try { navigator.clipboard.writeText($("mtext").value); } catch (e) { document.execCommand("copy"); } $("mcopy").textContent = "Copied"; setTimeout(() => ($("mcopy").textContent = "Copy"), 1200); };
+
+// ============================================================ sidebar
+function renderSidebar(ctx) {
+  const dirty = setDirty(), cur = findSet(state.setName);
+  let o = `<option value="">— custom selection —</option><optgroup label="Starter sets">` + BUILTIN.map((b) => `<option value="${esc(b.name)}">${esc(b.name)}</option>`).join("") + "</optgroup>";
+  if (USER_SETS.length) o += `<optgroup label="My sets">` + USER_SETS.map((b) => `<option value="${esc(b.name)}">${esc(b.name)}${b.type === "frozen" ? " ❄" : ""}</option>`).join("") + "</optgroup>";
+  $("setpick").innerHTML = o; $("setpick").value = cur ? state.setName : "";
+  $("setstatus").innerHTML = cur ? `${cur.builtin ? "starter set" : cur.type === "frozen" ? `frozen set ❄ · ${cur.qids.length} exact questions` : "filter set"}${dirty ? ' · <span class="modf">modified</span>' : ""}` : "unsaved selection";
+  $("setsave").disabled = !cur || cur.builtin || !dirty; $("setdel").disabled = !cur || !!cur.builtin; $("setren").disabled = !cur || !!cur.builtin;
+  $("h-set").textContent = `${cur ? cur.name : "custom"} · ${ctx.qs.length} q`;
+  // sources tree (counts after the difficulty filter)
+  const diff = new Set(state.diff), sel = new Set(state.src), cnt = {};
+  for (let q = 0; q < NQ; q++) if (Q.active[q] !== false && diff.has(bucket(ctx.bsolve[q]))) cnt[Q.source[q]] = (cnt[Q.source[q]] || 0) + 1;
+  const locked = ctx.mode !== "filter";
+  $("srctree").innerHTML = MODULES.map((m) => {
+    const srcs = SOURCES.filter((s) => srcModule[s] === m), on = srcs.filter((s) => sel.has(s)).length, mc = srcs.reduce((a, s) => a + (cnt[s] || 0), 0);
+    return `<label class="mod"><input type="checkbox" data-mod="${m}" ${on === srcs.length ? "checked" : ""} ${locked ? "disabled" : ""}> ${m} · ${esc(MOD_NAMES[m] || "")}<span class="cnt">${mc}</span></label><div class="kids">` +
+      srcs.map((s) => `<label><input type="checkbox" data-src="${esc(s)}" ${sel.has(s) ? "checked" : ""} ${locked ? "disabled" : ""}> ${esc(s)}<span class="cnt">${cnt[s] || 0}</span></label>`).join("") + "</div>";
+  }).join("") + (locked ? `<div class="note warn" style="margin-top:6px">${ctx.mode === "frozen" ? "A frozen set is active — choose “custom selection” to edit filters." : "Question ids pasted under Advanced override these."}</div>` : "");
+  $("srctree").querySelectorAll("input[data-mod]").forEach((i) => { const srcs = SOURCES.filter((s) => srcModule[s] === i.dataset.mod), on = srcs.filter((s) => sel.has(s)).length; i.indeterminate = on > 0 && on < srcs.length; });
+  $("h-src").textContent = state.src.length === SOURCES.length ? "all" : `${state.src.length} of ${SOURCES.length}`;
+  // difficulty (counts after the source filter)
+  const dc = {}; for (let q = 0; q < NQ; q++) if (Q.active[q] !== false && sel.has(Q.source[q])) { const b = bucket(ctx.bsolve[q]); dc[b] = (dc[b] || 0) + 1; }
+  $("difflist").innerHTML = DIFF.map(([k, l, r]) => `<label><input type="checkbox" data-diff="${k}" ${diff.has(k) ? "checked" : ""} ${locked ? "disabled" : ""}> ${l} <span class="ns" style="font-size:12px">${r}</span><span class="cnt">${dc[k] || 0}</span></label>`).join("");
+  $("h-diff").textContent = state.diff.length === 4 ? "all" : state.diff.join(", ") || "none";
+  // samples
+  $("seedmode").value = state.seedmode; if (document.activeElement !== $("k")) $("k").value = state.k; if (document.activeElement !== $("seedlist")) $("seedlist").value = state.seedlist;
+  $("k").disabled = state.seedmode !== "k"; $("seedlist").disabled = state.seedmode !== "list";
+  $("h-k").textContent = state.seedmode === "k" ? `avg@${state.k}` : state.seedmode === "all" ? "all seeds" : "seed list";
+  // models grouped by target
+  const hide = new Set(state.hide), groups = {};
+  for (let s = 0; s < NS; s++) { const g = S.kind[s] === "base" ? "base" : S.target[s] != null ? S.target[s] + "%" : "other"; (groups[g] = groups[g] || []).push(s); }
+  const order = Object.keys(groups).sort((a, b) => (a === "base" ? -1 : b === "base" ? 1 : (parseFloat(b) || -1) - (parseFloat(a) || -1)));
+  $("modellist").innerHTML = order.map((g) => `<div class="grouplbl">${g === "base" ? "base" : "target " + g}</div>` + groups[g].map((s) => {
+    const id = S.submission_id[s], isRef = id === state.ref;
+    return `<div class="modelrow" title="${esc(id)}${S.method[s] ? " · " + esc(S.method[s]) : ""}"><input type="checkbox" data-show="${esc(id)}" ${!hide.has(id) || isRef ? "checked" : ""} ${isRef ? "disabled" : ""}><span class="nm">${esc(nameOf(s))}</span><button class="star ${isRef ? "on" : ""}" data-star="${esc(id)}" title="${isRef ? "current reference" : "make reference"}">${isRef ? "★" : "☆"}</button></div>`;
+  }).join("")).join("");
+  $("h-models").textContent = `${visibleModels().length}/${NS} shown`;
+  // advanced
+  if (document.activeElement !== $("mincov")) $("mincov").value = state.mincov; $("cfg").value = state.cfg; if (document.activeElement !== $("uids")) $("uids").value = state.uids;
+  $("h-adv").textContent = state.uids.trim() ? "ids pasted" : state.mincov < 100 ? `coverage ≥ ${state.mincov}%` : "";
+  document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("on", a.dataset.p === (state.page === "q" ? "questions" : state.page)));
+}
+(function wireSidebar() {
+  D.configs.forEach((c, i) => { const o = document.createElement("option"); o.value = i; o.textContent = `${c} (${cfgCount[i]} results)`; $("cfg").appendChild(o); });
+  $("srctree").addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.dataset.mod) { const srcs = SOURCES.filter((s) => srcModule[s] === t.dataset.mod); state.src = t.checked ? [...new Set([...state.src, ...srcs])] : state.src.filter((s) => !srcs.includes(s)); }
+    if (t.dataset.src) state.src = t.checked ? [...state.src, t.dataset.src] : state.src.filter((s) => s !== t.dataset.src);
+    render();
+  });
+  document.querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => {
+    if (state.frozen) return;
+    const q = b.dataset.q;
+    state.src = q === "all" ? SOURCES.slice() : q === "none" ? [] : q === "fresh" ? SOURCES.filter(isFresh) : SOURCES.filter((s) => s.startsWith("aime"));
+    render();
+  }));
+  $("difflist").addEventListener("change", (e) => { const k = e.target.dataset.diff; state.diff = e.target.checked ? [...state.diff, k] : state.diff.filter((x) => x !== k); render(); });
+  $("seedmode").onchange = (e) => { state.seedmode = e.target.value; render(); };
+  $("k").oninput = (e) => { state.k = Math.max(1, +e.target.value || 1); render(); };
+  $("seedlist").oninput = (e) => { state.seedlist = e.target.value; render(); };
+  $("mincov").oninput = (e) => { state.mincov = +e.target.value || 0; render(); };
+  $("cfg").onchange = (e) => { state.cfg = +e.target.value; render(); };
+  $("uids").oninput = (e) => { state.uids = e.target.value; render(); };
+  $("modellist").addEventListener("change", (e) => { const id = e.target.dataset.show; if (!id) return; state.hide = e.target.checked ? state.hide.filter((x) => x !== id) : [...state.hide, id]; render(); });
+  $("modellist").addEventListener("click", (e) => { const b = e.target.closest("[data-star]"); if (!b) return; state.ref = b.dataset.star; state.hide = state.hide.filter((x) => x !== state.ref); render(); });
+  document.querySelectorAll("[data-m]").forEach((b) => (b.onclick = () => { state.hide = b.dataset.m === "all" ? [] : S.submission_id.filter((x) => x !== state.ref); render(); }));
+  $("setpick").onchange = (e) => { if (e.target.value) applySet(e.target.value); else { state.setName = ""; state.frozen = null; } render(); };
+  $("setsaveas").onclick = async () => {
+    const name = $("setname").value.trim(); if (!name) { $("setname").focus(); return; }
+    if (BUILTIN.some((b) => b.name === name)) { $("setstore").textContent = "That name belongs to a starter set — pick another."; return; }
+    const rec = { name, type: $("setfreeze").checked ? "frozen" : "filter", src: state.src.slice(), diff: state.diff.slice(), uids: state.uids, created: new Date().toISOString() };
+    if (rec.type === "frozen") rec.qids = context().qs.map((q) => Q.uid[q]);
+    USER_SETS = USER_SETS.filter((s) => s.name !== name).concat([rec]);
+    await persistSets(); $("setname").value = ""; $("setfreeze").checked = false; applySet(name); render();
+  };
+  $("setsave").onclick = async () => {
+    const s = USER_SETS.find((x) => x.name === state.setName); if (!s) return;
+    const qs = context().qs;
+    Object.assign(s, { src: state.src.slice(), diff: state.diff.slice(), uids: state.uids, updated: new Date().toISOString() });
+    if (s.type === "frozen") s.qids = qs.map((q) => Q.uid[q]);
+    await persistSets(); applySet(s.name); render();
+  };
+  $("setdel").onclick = async () => { const n = state.setName; if (!USER_SETS.some((x) => x.name === n)) return; if (!confirm(`Delete set “${n}”?`)) return; USER_SETS = USER_SETS.filter((x) => x.name !== n); await persistSets(); state.setName = ""; state.frozen = null; render(); };
+  $("setren").onclick = async () => {
+    const s = USER_SETS.find((x) => x.name === state.setName), nn = $("setname").value.trim();
+    if (!s) return; if (!nn) { $("setstore").textContent = "Type the new name in the box below, then press Rename."; $("setname").focus(); return; }
+    if (findSet(nn)) { $("setstore").textContent = "A set with that name already exists."; return; }
+    s.name = nn; state.setName = nn; $("setname").value = ""; await persistSets(); render();
+  };
+  $("setexport").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify({ sets: USER_SETS }, null, 1)], { type: "application/json" })); a.download = "lb_sets_export.json"; a.click(); };
+  $("setimport").onclick = () => $("setfile").click();
+  $("setfile").onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try { const js = JSON.parse(await f.text()); const inc = (js.sets || []).filter((s) => s && s.name && Array.isArray(s.src) && Array.isArray(s.diff));
+      const names = new Set(inc.map((s) => s.name)); USER_SETS = USER_SETS.filter((s) => !names.has(s.name)).concat(inc); await persistSets();
+      $("setstore").textContent = `Imported ${inc.length} set(s).`; render(); } catch (err) { $("setstore").textContent = "Import failed: " + err.message; }
+    e.target.value = "";
+  };
+  $("resetall").onclick = () => { Object.assign(state, DEFAULT_FILTERS(), { setName: AIME_SRC.length ? "All AIME" : "", frozen: null, seedmode: "k", k: 4, hide: [], mincov: 100, ref: baseIdx >= 0 ? S.submission_id[baseIdx] : "" }); render(); };
+  document.querySelectorAll("#nav a").forEach((a) => (a.onclick = () => go(a.dataset.p)));
+})();
+function go(page, uid) { state.page = page; if (uid !== undefined) state.uid = uid; saveHash(true); render(); window.scrollTo(0, 0); }
+
+// ============================================================ filter chips
+function ctxBar(ctx) {
+  const chips = [], cur = findSet(state.setName);
+  chips.push(`<span class="fchip setc">set&nbsp;<b>${esc(cur ? cur.name : "custom")}</b>${cur && cur.type === "frozen" ? "&nbsp;❄" : ""}${cur && setDirty() ? "&nbsp;· modified" : ""}</span>`);
+  if (ctx.mode === "filter") {
+    const sel = new Set(state.src);
+    MODULES.forEach((m) => {
+      const srcs = SOURCES.filter((s) => srcModule[s] === m), on = srcs.filter((s) => sel.has(s));
+      if (on.length) chips.push(`<span class="fchip"><b>${m}</b>&nbsp;${on.length === srcs.length ? "all" : esc(on.length <= 3 ? on.join(", ") : on.length + " sources")}<button class="x" data-xmod="${m}" title="remove module ${m}">×</button></span>`);
+    });
+    if (!state.src.length) chips.push(`<span class="fchip"><b>no sources selected</b></span>`);
+    if (!sameArr(state.diff, DEFAULT_FILTERS().diff)) chips.push(`<span class="fchip">base&nbsp;<b>${esc(state.diff.join(" + ") || "none")}</b><button class="x" data-xdiff="1" title="reset difficulty">×</button></span>`);
+  } else if (ctx.mode === "uids") chips.push(`<span class="fchip"><b>${ctx.qs.length}</b>&nbsp;pasted ids<button class="x" data-xuids="1" title="clear">×</button></span>`);
+  chips.push(`<span class="fchip"><b>${ctx.qs.length}</b>&nbsp;questions&nbsp;·&nbsp;<b>${state.seedmode === "k" ? "avg@" + state.k : state.seedmode === "all" ? "all seeds" : "seeds " + esc(state.seedlist)}</b></span>`);
+  chips.push(`<span class="fchip">★&nbsp;<b>${esc(ctx.ref >= 0 ? nameOf(ctx.ref) : "none")}</b></span>`);
+  if (state.hide.length) chips.push(`<span class="fchip"><b>${state.hide.length}</b>&nbsp;model(s) hidden<button class="x" data-xhide="1" title="show all">×</button></span>`);
+  if (ctx.unknown.length) chips.push(`<span class="fchip" style="color:var(--bad)">${ctx.unknown.length} unknown id(s) ignored</span>`);
+  const banner = PUBLIC ? `<div class="pubnote">Public view of a <b>local</b> evaluation of compressed Qwen3.5-4B models (CS6013) — not the official course leaderboard. Updated ${esc(D.synced_at)} · see <span class="link" data-faq="1">FAQ</span> for how the numbers are computed.</div>` : "";
+  return banner + `<div class="ctxbar">${chips.join("")}<span class="fp" data-help="Set fingerprint — same fingerprint means the same questions and seeds.">#${ctx.fp}</span></div>`;
+}
+function wireCtxBar() {
+  $("view").querySelectorAll("[data-faq]").forEach((b) => (b.onclick = () => go("faq")));
+  $("view").querySelectorAll("[data-xmod]").forEach((b) => (b.onclick = () => { state.src = state.src.filter((s) => srcModule[s] !== b.dataset.xmod); render(); }));
+  $("view").querySelectorAll("[data-xdiff]").forEach((b) => (b.onclick = () => { state.diff = DEFAULT_FILTERS().diff; render(); }));
+  $("view").querySelectorAll("[data-xuids]").forEach((b) => (b.onclick = () => { state.uids = ""; render(); }));
+  $("view").querySelectorAll("[data-xhide]").forEach((b) => (b.onclick = () => { state.hide = []; render(); }));
+}
+
+// ============================================================ page: leaderboard
+function renderBoard(ctx) {
+  const rows = modelRows(ctx), key = state.sort, dir = state.dir;
+  const val = (r) => (isNum(r[key]) ? r[key] : typeof r[key] === "string" ? r[key] : null);
+  const cmp = (a, b) => { if (a.eligible !== b.eligible) return a.eligible ? -1 : 1; const va = val(a), vb = val(b);
+    if (va === null && vb === null) return 0; if (va === null) return 1; if (vb === null) return -1; return (va < vb ? -1 : va > vb ? 1 : 0) * dir; };
+  const elig = rows.filter((r) => r.eligible), refRow = rows.find((r) => r.s === ctx.ref);
+  const tgt = [...new Set(elig.map((r) => S.target[r.s]).filter((t) => t != null))].sort((a, b) => b - a);
+  let tiles = `<div class="tile"><div class="k">★ reference · ${esc(refRow ? refRow.name : "—")}</div><div class="v">${refRow && isNum(refRow.acc) ? plain(refRow.acc, "pct") : "—"}</div><div class="s">avg@k on ${ctx.qs.length} questions</div></div>`;
+  tgt.forEach((t) => { const best = elig.filter((r) => S.target[r.s] === t).sort((a, b) => (b.acc || 0) - (a.acc || 0))[0];
+    tiles += `<div class="tile"><div class="k">best at ${t}%</div><div class="v">${plain(best.acc, "pct")}</div><div class="s">${esc(best.name)} · retention ${plain(best.retention, "pct")}</div></div>`; });
+  if (!elig.length) tiles += `<div class="tile"><div class="k">no ranked models</div><div class="v">—</div><div class="s">run the missing samples (+N) or lower coverage under Advanced</div></div>`;
+  const vis = COLS.filter((c) => state.cols[c[0]] || c[0] === "name");
+  const hdr = []; vis.forEach((c) => { const g = hdr[hdr.length - 1]; if (g && g.g === c[2]) g.n++; else hdr.push({ g: c[2], n: 1 }); });
+  let t = `<div class="tablewrap"><table><thead><tr class="grp">` + hdr.map((g, i) => `<th colspan="${g.n}" class="${i ? "g" : "stick"}">${g.g === "Model" ? "" : esc(g.g)}</th>`).join("") + "</tr><tr>" +
+    vis.map(([k, label, , , , help]) => `<th data-k="${k}" ${help ? `data-help="${esc(help)}"` : ""} class="sortable${LCOLS.includes(k) ? " l" : ""}${k === "name" ? " stick" : ""}${k === key ? " sorted" : ""}">${label}${k === key ? (dir < 0 ? " ↓" : " ↑") : ""}</th>`).join("") + "</tr></thead><tbody>";
+  let groups = [["", rows]];
+  if (state.group) {
+    const g = {}; rows.forEach((r) => { const k = S.kind[r.s] === "base" ? "base" : (S.target[r.s] ?? "?") + "%"; (g[k] = g[k] || []).push(r); });
+    groups = Object.keys(g).sort((a, b) => (a === "base" ? -1 : b === "base" ? 1 : parseFloat(b) - parseFloat(a))).map((k) => [k, g[k]]);
+  }
+  const flat = [];
+  groups.forEach(([gname, grs]) => {
+    grs.sort(cmp); let rank = 0;
+    if (gname) t += `<tr class="grouprow"><td colspan="${vis.length}">${esc(gname === "base" ? "base" : "target " + gname)}</td></tr>`;
+    grs.forEach((r) => {
+      r.rank = r.eligible ? ++rank : ""; flat.push(r);
+      const isRef = r.s === ctx.ref;
+      t += `<tr class="${r.eligible ? "" : "ineligible"}" title="${esc(S.submission_id[r.s])}">`;
+      vis.forEach(([k, , , f]) => {
+        let c;
+        if (k === "name") c = `<span class="rank">${r.rank}</span>${esc(r.name)}${isRef ? '<span class="isref">★ ref</span>' : ""}${r.eligible ? "" : ' <span class="ns" style="font-size:11px">· not ranked</span>'}`;
+        else if (k === "acc") c = isNum(r.acc) ? `<span class="bar"><span>${plain(r.acc, "pct")}</span><u><i style="width:${(100 * r.acc).toFixed(0)}%"></i></u></span> <span class="ci">±${isNum(r.ci) ? (100 * r.ci).toFixed(1) : "—"}</span>` : fmt(NaN);
+        else if (k === "cov") c = fmt(r.cov, "pct") + (r.missing.length && !PUBLIC ? ` <span class="link" data-gap="${r.s}" title="questions still missing samples — click for the list">+${r.missing.length}</span>` : "");
+        else if (isRef && ["delta", "pbetter", "retention", "lostcut", "lostwrong", "infl"].includes(k)) c = '<span class="ns">·</span>';
+        else if (k === "delta" && isNum(r.delta)) {
+          const sig = isNum(r.lo) && (r.lo > 0 || r.hi < 0);
+          c = `<span class="${sig ? "pill " + (r.delta > 0 ? "pos" : "neg") : "ns"}" title="95% CI [${plain(r.lo, "pp")}, ${plain(r.hi, "pp")}] · ${r.shared} shared samples">${plain(r.delta, "pp")}</span>` + (isNum(r.lo) ? ` <span class="ci">±${(50 * (r.hi - r.lo)).toFixed(1)}</span>` : "");
+        } else if ((k === "lostcut" || k === "lostwrong") && isNum(r[k]) && Math.abs(r[k]) > 0.0005) c = `<span class="${r[k] > 0 ? "negc" : "posc"}">${plain(r[k], "pp")}</span>`;
+        else c = fmt(r[k], f);
+        t += `<td class="${LCOLS.includes(k) ? "l" : ""}${k === "name" ? " stick" : ""}">${c}</td>`;
+      });
+      t += "</tr>";
+    });
+  });
+  if (!rows.length) t += `<tr><td colspan="${vis.length}" class="empty">no models visible — tick some under Models</td></tr>`;
+  t += "</tbody></table></div>";
+  const shown = flat.filter((r) => r.eligible), srcs = [...new Set(ctx.qs.map((q) => Q.source[q]))].sort();
+  let ps = `<div class="tablewrap"><table><thead><tr><th class="l stick">source</th><th>questions</th>` + shown.map((r) => `<th>${esc(r.name)}</th>`).join("") + "</tr></thead><tbody>";
+  if (shown.length) srcs.forEach((src) => { const sq = ctx.qs.filter((q) => Q.source[q] === src);
+    ps += `<tr><td class="l stick">${esc(src)}</td><td>${sq.length}</td>` + shown.map((r) => heatCell(modelStats(ctx.by, r.s, sq, ctx.seeds).acc, true)).join("") + "</tr>"; });
+  if (!shown.length || !srcs.length) ps += `<tr><td class="empty" colspan="${2 + shown.length}">${shown.length ? "no sources selected" : "no ranked models on this set — see the +N links above, or lower the coverage threshold under Advanced"}</td></tr>`;
+  ps += "</tbody></table></div>";
+  const colpick = ["Model", "Score", "vs reference", "Behaviour", "Info"].map((g) => `<div class="g">${g}</div>` + COLS.filter((c) => c[2] === g && c[0] !== "name").map((c) => `<label><input type="checkbox" data-c="${c[0]}" ${state.cols[c[0]] ? "checked" : ""}> ${esc(c[1])}</label>`).join("")).join("");
+  $("view").innerHTML = ctxBar(ctx) + `<div class="tiles">${tiles}</div><div class="card"><div class="toolbar">
+      <button class="btn plain" id="colbtn">Columns ▾</button>
+      <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="grp" ${state.group ? "checked" : ""}> group by target</label>
+      <span class="sp"></span><span class="note">hover a column name for its meaning · click to sort</span><button class="btn ghost" id="csv">Export CSV</button>
+      <div class="colpick" id="colpick">${colpick}</div></div>${t}</div>
+    <details class="card" open><summary>avg@k by source · ranked models</summary>${ps}</details>`;
+  wireCtxBar();
+  $("view").querySelectorAll("th.sortable").forEach((th) => (th.onclick = () => { const k = th.dataset.k; if (state.sort === k) state.dir = -state.dir;
+    else { state.sort = k; state.dir = ["tok", "trunc", "size", "infl", "wait", "lostcut", "lostwrong", "name", "week", "method"].includes(k) ? 1 : -1; } render(); }));
+  $("colbtn").onclick = (e) => { const p = $("colpick"); p.style.display = p.style.display === "block" ? "none" : "block"; e.stopPropagation(); };
+  $("colpick").onclick = (e) => e.stopPropagation();
+  $("colpick").querySelectorAll("input").forEach((i) => (i.onchange = () => { state.cols[i.dataset.c] = i.checked; render(); $("colpick").style.display = "block"; }));
+  $("grp").onchange = (e) => { state.group = e.target.checked; render(); };
+  $("view").querySelectorAll("[data-gap]").forEach((el) => (el.onclick = () => {
+    const r = flat.find((x) => x.s === +el.dataset.gap);
+    openModal(`${r.name}: ${r.missing.length} question(s) to complete`,
+      `Paste into lb_eval.py ⑤ (this submission) with ${state.seedmode === "list" ? "explicit seeds " + [...ctx.seeds].join(",") : "k = " + (ctx.seeds ? ctx.seeds.size : 1)}. Only the missing samples run.`,
+      r.missing.map((q) => Q.uid[q]).join("\n"));
+  }));
+  $("csv").onclick = () => {
+    const head = ["rank", "model", "submission_id", "target", "size_frac", "week", "method", "coverage", "avg_at_k", "ci95", "delta_ref", "delta_lo", "delta_hi", "p_better", "retention", "pass_at_k", "lost_cutoff", "lost_wrong", "parse", "cutoff", "tokens", "token_x_ref", "wait_per_1k", "official", "set_fingerprint", "reference"];
+    const lines = [head.join(",")];
+    flat.forEach((r) => lines.push([r.rank, r.name, S.submission_id[r.s], r.target, r.size, r.week, r.method, r.cov, r.acc, r.ci, r.delta, r.lo, r.hi, r.pbetter, r.retention, r.passk, r.lostcut, r.lostwrong, r.parse, r.trunc, r.tok, r.infl, r.wait, r.official, ctx.fp, ctx.ref >= 0 ? S.submission_id[ctx.ref] : ""]
+      .map((v) => (v === null || v === undefined || (typeof v === "number" && Number.isNaN(v)) ? "" : `"${String(v).replace(/"/g, '""')}"`)).join(",")));
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" })); a.download = `leaderboard_${ctx.fp}.csv`; a.click();
+  };
+}
+document.addEventListener("click", () => { const p = $("colpick"); if (p) p.style.display = "none"; });
+
+// ============================================================ page: head-to-head
+function renderH2H(ctx) {
+  const rows = modelRows(ctx).filter((r) => r.samples > 0).sort((a, b) => (b.acc || 0) - (a.acc || 0));
+  if (rows.length < 2) { $("view").innerHTML = ctxBar(ctx) + `<div class="card empty">Need at least two visible models with results on this set.</div>`; wireCtxBar(); return; }
+  const ids = rows.map((r) => S.submission_id[r.s]);
+  if (!ids.includes(state.A)) state.A = ids.find((x) => sidIndex.get(x) !== ctx.ref) || ids[0];
+  if (!ids.includes(state.B) || state.B === state.A) state.B = ctx.ref >= 0 && ids.includes(S.submission_id[ctx.ref]) && S.submission_id[ctx.ref] !== state.A ? S.submission_id[ctx.ref] : ids.find((x) => x !== state.A);
+  const a = sidIndex.get(state.A), b = sidIndex.get(state.B), p = paired(ctx.by, a, b, ctx.qs, ctx.seeds);
+  const opt = (sel) => rows.map((r) => `<option value="${esc(S.submission_id[r.s])}" ${S.submission_id[r.s] === sel ? "selected" : ""}>${esc(r.name)}</option>`).join("");
+  const sig = isNum(p.lo) && (p.lo > 0 || p.hi < 0);
+  const cat = { aBetter: 0, bBetter: 0, bothRight: 0, bothWrong: 0, tiePartial: 0 };
+  p.per.forEach((x) => { if (x.a > x.b + 1e-9) cat.aBetter++; else if (x.b > x.a + 1e-9) cat.bBetter++; else if (x.a >= 1 - 1e-9) cat.bothRight++; else if (x.a <= 1e-9) cat.bothWrong++; else cat.tiePartial++; });
+  const nA = esc(nameOf(a)), nB = esc(nameOf(b));
+  const dis = p.per.filter((x) => Math.abs(x.a - x.b) > 1e-9).sort((x, y) => Math.abs(y.a - y.b) - Math.abs(x.a - x.b) || (ctx.bsolve[y.q] || 0) - (ctx.bsolve[x.q] || 0));
+  $("view").innerHTML = ctxBar(ctx) + `<div class="card"><div class="row" style="align-items:flex-end">
+      <label><span class="lbl" style="margin-top:0">Model A</span><select id="selA">${opt(state.A)}</select></label>
+      <button class="btn plain" id="swap" style="flex:0 0 auto" title="swap A and B">⇄</button>
+      <label><span class="lbl" style="margin-top:0">Model B</span><select id="selB">${opt(state.B)}</select></label></div></div>
+    <div class="tiles">
+      <div class="tile"><div class="k">Δ avg@k (A − B)</div><div class="v ${sig ? (p.delta > 0 ? "posc" : "negc") : ""}">${plain(p.delta, "pp")}</div><div class="s">95% CI [${plain(p.lo, "pp")}, ${plain(p.hi, "pp")}]${sig ? "" : " · not significant"}</div></div>
+      <div class="tile"><div class="k">P(A better than B)</div><div class="v">${plain(p.p, "pct")}</div><div class="s">bootstrap over questions</div></div>
+      <div class="tile"><div class="k">avg@k A / B</div><div class="v">${plain(p.accA, "pct")} <span style="font-size:15px;color:var(--ink2)">/ ${plain(p.accB, "pct")}</span></div><div class="s">${p.nq} shared questions · ${p.shared} sample pairs</div></div>
+      <div class="tile"><div class="k">A loses vs B to</div><div class="v" style="font-size:17px;margin-top:6px">cut-off ${plain(p.lostcut, "pp")} · wrong ${plain(p.lostwrong, "pp")}</div><div class="s">tokens A ÷ B: ${plain(p.infl, 2)}</div></div></div>
+    <div class="card"><div class="grid2"><div><h3>Per-question solve rate</h3><div id="scatter"></div>
+      <div class="legend"><span><span class="sw" style="background:var(--s1)"></span>A better (${cat.aBetter})</span><span><span class="sw" style="background:var(--s2)"></span>B better (${cat.bBetter})</span><span><span class="sw" style="background:var(--neutral)"></span>same (${cat.bothRight + cat.bothWrong + cat.tiePartial})</span></div></div>
+      <div><h3>Where they differ</h3><div class="tablewrap"><table><tbody>
+        <tr><td class="l">A better</td><td><b>${cat.aBetter}</b></td><td class="l note">A solved it more often than B</td></tr>
+        <tr><td class="l">B better</td><td><b>${cat.bBetter}</b></td><td class="l note">B solved it more often than A</td></tr>
+        <tr><td class="l">both always right</td><td>${cat.bothRight}</td><td class="l note">says nothing about the difference</td></tr>
+        <tr><td class="l">both always wrong</td><td>${cat.bothWrong}</td><td class="l note">too hard for both</td></tr>
+        <tr><td class="l">same, partly right</td><td>${cat.tiePartial}</td><td class="l note">equal solve rate between 0 and 100%</td></tr></tbody></table></div>
+      <p class="note">Only the first two rows decide the difference. Click a point or a row below to open the question.</p></div></div></div>
+    <details class="card" open><summary>Disagreements (${dis.length})</summary><div class="tablewrap"><table><thead><tr><th class="l stick">question</th><th class="l">source</th><th>base solve</th><th>A: ${nA}</th><th>B: ${nB}</th><th>A − B</th><th>tokens A</th><th>tokens B</th></tr></thead><tbody>` +
+    dis.map((x) => `<tr class="click" data-uid="${esc(Q.uid[x.q])}"><td class="l stick">${esc(Q.uid[x.q])}</td><td class="l">${esc(Q.source[x.q])}</td><td>${fmt(ctx.bsolve[x.q], "pct")}</td>${heatCell(x.a)}${heatCell(x.b)}<td class="${x.a > x.b ? "posc" : "negc"}">${plain(x.a - x.b, "pp")}</td><td>${fmt(x.ta, 0)}</td><td>${fmt(x.tb, 0)}</td></tr>`).join("") +
+    (dis.length ? "" : `<tr><td class="empty" colspan="8">no disagreements</td></tr>`) + "</tbody></table></div></details>";
+  wireCtxBar();
+  $("selA").onchange = (e) => { state.A = e.target.value; render(); };
+  $("selB").onchange = (e) => { state.B = e.target.value; render(); };
+  $("swap").onclick = () => { [state.A, state.B] = [state.B, state.A]; render(); };
+  $("view").querySelectorAll("tr[data-uid]").forEach((tr) => (tr.onclick = () => go("q", tr.dataset.uid)));
+  drawScatter(p.per, nA, nB);
+}
+function drawScatter(per, nA, nB) {
+  const W = 400, H = 380, m = { l: 46, r: 12, t: 10, b: 40 }, iw = W - m.l - m.r, ih = H - m.t - m.b, pad = 16;
+  const X = (v) => m.l + pad + v * (iw - 2 * pad), Y = (v) => m.t + pad + (1 - v) * (ih - 2 * pad);
+  const groups = new Map(); per.forEach((x) => { const k = x.a.toFixed(3) + "," + x.b.toFixed(3); (groups.get(k) || groups.set(k, []).get(k)).push(x); });
+  let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="per-question solve rate, A vs B" style="max-width:100%">`;
+  [0, 0.25, 0.5, 0.75, 1].forEach((t) => {
+    s += `<line x1="${X(t)}" y1="${m.t}" x2="${X(t)}" y2="${m.t + ih}" stroke="var(--line2)"/><line x1="${m.l}" y1="${Y(t)}" x2="${m.l + iw}" y2="${Y(t)}" stroke="var(--line2)"/>`;
+    s += `<text x="${X(t)}" y="${H - m.b + 16}" font-size="11" text-anchor="middle" fill="var(--ink2)">${t * 100}%</text><text x="${m.l - 6}" y="${Y(t) + 4}" font-size="11" text-anchor="end" fill="var(--ink2)">${t * 100}%</text>`;
+  });
+  s += `<line x1="${X(0)}" y1="${Y(0)}" x2="${X(1)}" y2="${Y(1)}" stroke="var(--neutral)" stroke-dasharray="4 4" stroke-width="1.5"/>`;
+  s += `<text x="${m.l + iw / 2}" y="${H - 6}" font-size="12" text-anchor="middle" fill="var(--ink2)">B: ${nB}</text><text transform="translate(12,${m.t + ih / 2}) rotate(-90)" font-size="12" text-anchor="middle" fill="var(--ink2)">A: ${nA}</text>`;
+  let i = 0;
+  for (const [, pts] of groups) { const x = pts[0], col = x.a > x.b + 1e-9 ? "var(--s1)" : x.b > x.a + 1e-9 ? "var(--s2)" : "var(--neutral)";
+    s += `<circle data-i="${i++}" cx="${X(x.b)}" cy="${Y(x.a)}" r="${Math.min(4 + 2.2 * Math.sqrt(pts.length), 16)}" fill="${col}" fill-opacity=".88" stroke="var(--panel)" stroke-width="2" style="cursor:pointer"/>`; }
+  $("scatter").innerHTML = s + "</svg>";
+  const arr = [...groups.values()];
+  $("scatter").querySelectorAll("circle").forEach((c) => { const pts = arr[+c.dataset.i];
+    c.onmousemove = (e) => showTip(e, `<b>${pts.length} question(s)</b> · A ${(100 * pts[0].a).toFixed(0)}% · B ${(100 * pts[0].b).toFixed(0)}%<br>${pts.slice(0, 8).map((p) => esc(Q.uid[p.q])).join("<br>")}${pts.length > 8 ? "<br>…" : ""}<br><span class="ns">click to open the first</span>`);
+    c.onmouseleave = hideTip; c.onclick = () => { hideTip(); go("q", Q.uid[pts[0].q]); }; });
+}
+
+// ============================================================ page: questions
+let QLIST = [];
+function questionRows(ctx) {
+  const models = modelRows(ctx).filter((r) => r.samples > 0).sort((a, b) => (a.s === ctx.ref ? -1 : b.s === ctx.ref ? 1 : (b.acc || 0) - (a.acc || 0)));
+  const rsolve = solveRates(ctx.by, ctx.ref), srch = state.qsearch.trim().toLowerCase();
+  const list = ctx.qs.filter((q) => !srch || Q.uid[q].toLowerCase().includes(srch) || String(Q.topic[q] || "").toLowerCase().includes(srch)).map((q) => {
+    const vals = models.map((r) => { const rows = rowsFor(ctx.by, r.s, q, ctx.seeds); return rows.length ? rows.reduce((a, x) => a + R.ok[x], 0) / rows.length : NaN; });
+    const others = vals.filter((v, i) => models[i].s !== ctx.ref && isNum(v));
+    return { q, vals, drop: isNum(rsolve[q]) && others.length ? rsolve[q] - Math.min(...others) : NaN, unstable: vals.filter((v) => isNum(v) && v > 1e-9 && v < 1 - 1e-9).length, base: ctx.bsolve[q] };
+  });
+  const key = state.qsort, dir = state.qdir;
+  const kv = (x) => (key === "uid" ? Q.uid[x.q] : key === "source" ? Q.source[x.q] : key.startsWith("m") ? x.vals[+key.slice(1)] : x[key]);
+  list.sort((a, b) => { const va = kv(a), vb = kv(b); const na = va === undefined || (typeof va === "number" && Number.isNaN(va)), nb = vb === undefined || (typeof vb === "number" && Number.isNaN(vb));
+    if (na && nb) return 0; if (na) return 1; if (nb) return -1; return (va < vb ? -1 : va > vb ? 1 : 0) * dir; });
+  QLIST = list.map((x) => Q.uid[x.q]);
+  return { models, list };
+}
+function renderQuestions(ctx) {
+  const { models, list } = questionRows(ctx), key = state.qsort, dir = state.qdir;
+  const th = (k, label, cls = "", help = "") => `<th class="sortable ${cls}${key === k ? " sorted" : ""}" data-k="${k}" ${help ? `data-help="${esc(help)}"` : ""}>${label}${key === k ? (dir < 0 ? " ↓" : " ↑") : ""}</th>`;
+  let h = `<div class="tablewrap"><table><thead><tr>${th("uid", "question", "l stick")}${th("source", "source", "l")}${th("base", "base solve", "", "Base model solve rate over all its samples (used for the difficulty filter).")}` +
+    models.map((r, i) => th("m" + i, esc(r.name) + (r.s === ctx.ref ? " ★" : ""))).join("") +
+    th("drop", "max drop", "", "Reference solve rate minus the worst other visible model.") + th("unstable", "unsure", "", "Models with a solve rate strictly between 0 and 100% — where more seeds help.") + "</tr></thead><tbody>";
+  list.forEach((x) => { h += `<tr class="click" data-uid="${esc(Q.uid[x.q])}"><td class="l stick">${esc(Q.uid[x.q])}</td><td class="l">${esc(Q.source[x.q])}</td><td>${fmt(x.base, "pct")}</td>` +
+    x.vals.map((v) => heatCell(v)).join("") + `<td class="${x.drop > 0 ? "negc" : ""}">${isNum(x.drop) ? plain(x.drop, "pp") : fmt(NaN)}</td><td>${x.unstable}</td></tr>`; });
+  if (!list.length) h += `<tr><td class="empty" colspan="${5 + models.length}">no questions</td></tr>`;
+  $("view").innerHTML = ctxBar(ctx) + `<div class="card"><div class="toolbar"><input type="text" id="qsearch" placeholder="filter by id or topic…" value="${esc(state.qsearch)}" style="max-width:320px"><span class="sp"></span><span class="note">${list.length} questions · cells = solve rate % over the counted seeds · click a row to open it</span></div>${h}</tbody></table></div></div>`;
+  wireCtxBar();
+  $("qsearch").oninput = (e) => { state.qsearch = e.target.value; const pos = e.target.selectionStart; render(); const el = $("qsearch"); el.focus(); el.setSelectionRange(pos, pos); };
+  $("view").querySelectorAll("th.sortable").forEach((t) => (t.onclick = () => { const k = t.dataset.k; if (state.qsort === k) state.qdir = -state.qdir; else { state.qsort = k; state.qdir = ["uid", "source"].includes(k) ? 1 : -1; } render(); }));
+  $("view").querySelectorAll("tr[data-uid]").forEach((tr) => (tr.onclick = () => go("q", tr.dataset.uid)));
+}
+
+// ============================================================ page: question detail
+const highlightBoxed = (t) => esc(t).replace(/\\boxed\{((?:[^{}]|\{[^{}]*\})*)\}/g, (m) => `<mark class="box">${m}</mark>`);
+function renderQuestion(ctx) {
+  questionRows(ctx);
+  const q = uidIndex.get(state.uid);
+  if (q === undefined) { $("view").innerHTML = `<div class="card empty">Unknown question <code>${esc(state.uid)}</code>. <span class="link" id="back">Back to questions</span></div>`; $("back").onclick = () => go("questions"); return; }
+  const pos = QLIST.indexOf(state.uid), prev = pos > 0 ? QLIST[pos - 1] : null, next = pos >= 0 && pos < QLIST.length - 1 ? QLIST[pos + 1] : null;
+  const vis = new Set(visibleModels()), models = [];
+  for (let s = 0; s < NS; s++) { if (!vis.has(s)) continue; const rows = ctx.by[s].get(q); if (rows && rows.length) models.push({ s, rows: rows.slice().sort((a, b) => R.seed[a] - R.seed[b]) }); }
+  models.sort((a, b) => (a.s === ctx.ref ? -1 : b.s === ctx.ref ? 1 : nameOf(a.s).localeCompare(nameOf(b.s))));
+  let h = `<div class="toolbar"><span class="link" id="back">← all questions</span><span class="sp"></span><span class="note">${pos >= 0 ? `${pos + 1} / ${QLIST.length} in the current list` : "not in the current set"}</span>
+      ${prev ? `<button class="btn plain" id="prev">← prev</button>` : ""}${next ? `<button class="btn plain" id="next">next →</button>` : ""}</div>
+    <div class="card"><div class="qtitle">${esc(Q.uid[q])}</div>
+      <div class="note">${esc(Q.source[q])} · module ${esc(Q.module[q])}${Q.topic[q] ? " · " + esc(Q.topic[q]) : ""} · base solve ${plain(ctx.bsolve[q], "pct")} (${bucket(ctx.bsolve[q])})</div>
+      ${PUBLIC ? `<p class="note" style="margin-top:12px">Problem text and answers are not included in the public view — the id identifies the problem in its source competition.</p>` : `<pre class="problem">${Q.problem[q] ? esc(Q.problem[q]) : '<span class="ns">Problem text is not in the synced data — re-run lb_sync.py.</span>'}</pre>
+      <div class="gold">gold answer: <b>${esc(Q.answer[q] ?? "—")}</b></div>`}</div>
+    <div class="card"><h3>Samples · all seeds · current eval config</h3><div class="tablewrap"><table><thead><tr><th class="l">model</th><th>solved</th><th class="l">seed · tokens${HAS_PRED ? " · extracted answer" : ""}</th></tr></thead><tbody>`;
+  models.forEach(({ s, rows }) => { const ok = rows.reduce((a, r) => a + R.ok[r], 0);
+    h += `<tr><td class="l">${esc(nameOf(s))}${s === ctx.ref ? '<span class="isref">★ ref</span>' : ""}</td><td>${ok}/${rows.length}</td><td class="l" style="white-space:normal">` +
+      rows.map((r) => `<span class="seedchip ${R.ok[r] ? "ok" : "bad"}" title="${R.trunc[r] ? "hit the 32K limit" : "finished"}${R.fromthink[r] ? " · answer taken from inside the thinking" : ""}">${R.ok[r] ? "✓" : "✗"} ${R.seed[r]} · ${(R.tok[r] / 1000).toFixed(1)}K${R.trunc[r] ? " · cut" : ""}${HAS_PRED ? " · " + esc(R.pred[r] ?? "no answer") : ""}</span>`).join("") + "</td></tr>"; });
+  if (!models.length) h += `<tr><td class="empty" colspan="3">no results for this question (visible models, current eval config)</td></tr>`;
+  if (PUBLIC) h += `</tbody></table></div></div>`;
+  else h += `</tbody></table></div></div><div class="card"><h3>Traces</h3><div id="traces">` + (SERVER ? `<button class="btn" id="loadtr">Load traces</button> <span class="note">&nbsp;fetched from the Hub on demand — the first time per results file can take a while, then it's cached.</span>`
+    : `<p class="note">The trace viewer needs the local server: run <code>python lb_sync.py --serve</code> and use the page it opens.</p>`) + "</div></div>";
+  $("view").innerHTML = h;
+  $("back").onclick = () => go("questions"); if (prev) $("prev").onclick = () => go("q", prev); if (next) $("next").onclick = () => go("q", next);
+  if (SERVER) $("loadtr").onclick = () => loadTraces(q, models);
+}
+async function loadTraces(q, models) {
+  const box = $("traces"), shards = [...new Set(models.flatMap((m) => m.rows.map((r) => R.f[r])).filter((f) => f >= 0).map((f) => SHARDS[f]))];
+  box.innerHTML = `<p class="note">loading from ${shards.length} results file(s)…</p>`;
+  try {
+    const res = await fetch("/api/traces?uid=" + encodeURIComponent(Q.uid[q]) + shards.map((s) => "&shard=" + encodeURIComponent(s)).join("")); const js = await res.json();
+    if (!res.ok) throw new Error(js.error || res.status);
+    const cfgId = D.configs[state.cfg], order = new Map(models.map((m, i) => [S.submission_id[m.s], i]));
+    const rows = js.rows.filter((r) => r.config_id === cfgId && order.has(r.submission_id)).sort((a, b) => order.get(a.submission_id) - order.get(b.submission_id) || a.seed - b.seed);
+    box.innerHTML = rows.map((r) => { const s = sidIndex.get(r.submission_id), txt = r.completion || "", cut = txt.indexOf("</think>");
+      const think = cut >= 0 ? txt.slice(0, cut) : txt, ans = cut >= 0 ? txt.slice(cut + 8) : "";
+      return `<details class="trace"><summary><b>${esc(nameOf(s))}</b> · seed ${r.seed} · ${r.correct_grader ? '<span class="posc">✓ correct</span>' : '<span class="negc">✗ wrong</span>'} · ${(r.n_completion_tokens || 0).toLocaleString()} tokens${r.truncated ? ' · <span class="negc">cut off</span>' : ""} · answer <code>${esc(r.grader_pred ?? "none")}</code></summary><div class="body">
+        <details><summary class="note">thinking (${think.length.toLocaleString()} chars${cut < 0 ? ", never closed" : ""})</summary><pre class="tracetext">${highlightBoxed(think)}</pre></details>
+        ${cut >= 0 ? `<div class="note" style="margin-top:6px">final answer part</div><pre class="tracetext">${highlightBoxed(ans)}</pre>` : `<p class="note">No answer part — the model never closed its thinking.</p>`}</div></details>`; }).join("") || `<p class="note">No traces found for this question.</p>`;
+  } catch (e) { box.innerHTML = `<p class="note warn">Could not load traces: ${esc(e.message)}</p>`; }
+}
+
+// ============================================================ page: FAQ
+function renderFAQ() {
+  const cols = COLS.filter((c) => c[5]).map((c) => `<tr><td>${esc(c[1])}</td><td>${esc(c[2])}</td><td>${esc(c[5])}</td></tr>`).join("");
+  $("view").innerHTML = `<div class="card faq"><h2>Guide</h2><p>How to read and use the local leaderboard.</p>
+  ${PUBLIC ? `<h3>About this page</h3><ul>
+    <li>A <b>local</b> evaluation of compressed versions of Qwen3.5-4B (targets: 40%, 20%, 10% of the original weights) built for the CS6013 course project. It is <b>not</b> the official course leaderboard.</li>
+    <li>Every model is run with the course grader's settings (prompt template, temperature 1.0, top-p 0.95, top-k 20, presence penalty 1.5, thinking on, 32K output tokens) and scored with the grader's own answer parser.</li>
+    <li>The data refreshes automatically once a day. Models appear under short aliases.</li>
+    <li>Questions come from public competitions — AIME 2022–2026, HMMT, BRUMO, CMIMC, SMT (via MathArena, CC BY-NC-SA 4.0) and MATH-500 — and are referenced by id only.</li></ul>` : `<h3>Quick start</h3><ul>
+    <li><code>python lb_sync.py</code> — pull the latest registries and open this page as a file.</li>
+    <li><code>python lb_sync.py --serve</code> — the same, served at <code>http://127.0.0.1:8765</code>: enables the trace viewer and saves your question sets to <code>lb_sets.json</code>. Ctrl+C stops it; <code>--no-sync</code> serves without syncing.</li>
+    <li>Only light columns are synced (scores, tokens, flags); traces are fetched per question when you open them.</li></ul>`}
+  <h3>Question sets</h3><ul>
+    <li><b>Sources</b>: tick any combination; a module box ticks all of its sources. Counts show how many questions each would contribute under the current difficulty filter.</li>
+    <li><b>Base difficulty</b>: from the base model's solve rate over all its samples — always (100%), sometimes (1–99%), never (0%), not run by base.</li>
+    <li><b>Filter set</b>: saves the ticks; questions added later that match will join it. <b>Frozen set ❄</b>: saves the exact question list and never changes — use it for a fixed benchmark whose numbers must stay comparable over time.</li>
+    <li><b>Starter sets</b> are built in and read-only; use <i>Save as</i> to keep a modified copy.</li>
+    <li><b>Fingerprint</b> (#…): a hash of the exact questions and seeds. Same fingerprint = the same measurement.</li>
+    <li>Pasted question ids (Advanced) override sources and difficulty.</li></ul>
+  <h3>avg@k and samples</h3><ul>
+    <li><b>avg@k</b>: for each question the mean correctness over its k samples (seeds 42 … 42+k−1), then the mean over questions. Every question counts once, however many samples it has.</li>
+    <li>A larger k doesn't change what avg@k measures, only how noisy it is. Seed 42 is the grader's own draw.</li>
+    <li><b>Coverage</b>: the share of the set's question×seed pairs a model has. Below the threshold (Advanced, default 100%) a model is listed but not ranked.${PUBLIC ? "" : " Its <b>+N</b> link lists the questions still missing samples — paste them into <code>lb_eval.py</code> ⑤ with the same k."}</li></ul>
+  <h3>Comparing models</h3><ul>
+    <li>The <b>reference ★</b> (default base) is what Δ, P(better), retention, the loss split and the token ratio compare against. Change it in the Models section.</li>
+    <li>Comparisons only use question×seed pairs that both models have.</li>
+    <li><b>95% interval</b> for Δ: bootstrap over questions (1000 resamples). Δ is coloured only when the interval excludes 0 — otherwise the difference may be noise. With ~30 questions, gaps of a few points usually are.</li>
+    <li><b>lost: cut-off + lost: wrong = −Δ</b>: how much of a drop comes from running out of tokens (32K) versus answering wrongly.</li>
+    <li><b>Head-to-head</b>: only questions where one model is more often right decide the difference; questions both always solve or both never solve say nothing about it.</li></ul>
+  <h3>Columns</h3><div class="tablewrap"><table><thead><tr><th class="l">column</th><th class="l">group</th><th class="l">meaning</th></tr></thead><tbody>${cols}</tbody></table></div>
+  ${PUBLIC ? "" : `<h3>Troubleshooting</h3><ul>
+    <li><i>Traces need the local server</i> — start with <code>--serve</code>.</li>
+    <li><i>Saved sets are missing</i> — sets saved without the server live only in that browser; use Export / Import, or save them again with the server running.</li>
+    <li><i>A model shows “not ranked”</i> — it lacks samples for part of the set; use its +N list or lower the coverage threshold under Advanced.</li></ul>`}</div>`;
+}
+
+// ============================================================ render loop
+function render() {
+  const ctx = context();
+  renderSidebar(ctx);
+  if (state.page === "h2h") renderH2H(ctx);
+  else if (state.page === "questions") renderQuestions(ctx);
+  else if (state.page === "q") renderQuestion(ctx);
+  else if (state.page === "faq") renderFAQ();
+  else renderBoard(ctx);
+  saveHash(false);
+}
+loadHash();
+render();
+loadSets().then(() => { if (state.setName && !findSet(state.setName)) { state.setName = ""; state.frozen = null; } render(); });
+})();
+</script>
+</body>
+</html>
